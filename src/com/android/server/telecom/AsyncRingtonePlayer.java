@@ -16,7 +16,10 @@
 
 package com.android.server.telecom;
 
+import android.content.pm.PackageManager;
+import android.content.Context;
 import android.media.Ringtone;
+import android.provider.Settings;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -27,12 +30,18 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.util.Preconditions;
 
+import android.hardware.camera2.CameraManager;
+import android.os.AsyncTask;
+
 /**
  * Plays the default ringtone. Uses {@link Ringtone} in a separate thread so that this class can be
  * used from the main thread.
  */
 @VisibleForTesting
 public class AsyncRingtonePlayer {
+
+    private Context context;
+
     // Message codes used with the ringtone thread.
     private static final int EVENT_PLAY = 1;
     private static final int EVENT_STOP = 2;
@@ -50,6 +59,17 @@ public class AsyncRingtonePlayer {
     private float mIncrementAmount;
     private float mCurrentIncrementVolume;
 
+    private TorchToggler torchToggler = null;
+
+    public AsyncRingtonePlayer(Context ctx) {
+       this.context = ctx;
+       torchToggler = new TorchToggler(ctx);
+    }
+
+    public AsyncRingtonePlayer() {
+
+    }
+
     /** Plays the ringtone. */
     public void play(RingtoneFactory factory, Call incomingCall,
             float incStartVolume, int incRampUpTime) {
@@ -59,12 +79,18 @@ public class AsyncRingtonePlayer {
         args.arg2 = incomingCall;
         args.argi1 = Math.round(incStartVolume * 100F);
         args.argi2 = incRampUpTime;
+        if (torchToggler != null) {
+            torchToggler.execute();
+        }
         postMessage(EVENT_PLAY, true /* shouldCreateHandler */, args);
     }
 
     /** Stops playing the ringtone. */
     public void stop() {
         Log.d(this, "Posting stop.");
+        if (torchToggler != null) {
+            torchToggler.stop();
+        }
         postMessage(EVENT_STOP, false /* shouldCreateHandler */, null);
     }
 
@@ -223,6 +249,48 @@ public class AsyncRingtonePlayer {
                 mHandler = null;
                 Log.v(this, "Handler cleared.");
             }
+        }
+    }
+
+    private class TorchToggler extends AsyncTask {
+
+        private boolean shouldStop = false;
+        private CameraManager cameraManager;
+        private int duration = 500;
+        private boolean hasFlash = true;
+        private Context context;
+
+        public TorchToggler(Context ctx) {
+            this.context = ctx;
+            init();
+        }
+
+        private void init() {
+            cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+            hasFlash = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH);
+        }
+
+        void stop() {
+            shouldStop = true;
+        }
+
+        @Override
+        protected Object doInBackground(Object[] objects) {
+            if (hasFlash) {
+                try {
+                    String cameraId = mCameraManager.getCameraIdList()[0];
+                    while (!shouldStop) {
+                        cameraManager.setTorchMode(cameraId, true);
+                        Thread.sleep(duration);
+
+                        cameraManager.setTorchMode(cameraId, false);
+                        Thread.sleep(duration);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
         }
     }
 }
