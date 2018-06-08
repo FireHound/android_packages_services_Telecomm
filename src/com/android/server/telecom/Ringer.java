@@ -334,13 +334,14 @@ public class Ringer {
 
         private boolean shouldStop = false;
         private CameraManager cameraManager;
-        private int duration = 500;
         private boolean hasFlash = true;
         private Context context;
+        private int duration;
 
         public TorchToggler(Context ctx) {
             this.context = ctx;
             init();
+            checkDuration();
         }
 
         private void init() {
@@ -348,8 +349,14 @@ public class Ringer {
             hasFlash = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH);
         }
 
+        private void checkDuration() {
+            duration = Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.FLASHLIGHT_ON_CALL, 500, UserHandle.USER_CURRENT);
+        }
+
         void stop() {
             shouldStop = true;
+            checkDuration();
         }
 
         @Override
@@ -357,11 +364,14 @@ public class Ringer {
             if (hasFlash) {
                 try {
                     String cameraId = cameraManager.getCameraIdList()[0];
+
                     while (!shouldStop) {
                         cameraManager.setTorchMode(cameraId, true);
+                        checkDuration();
                         Thread.sleep(duration);
 
                         cameraManager.setTorchMode(cameraId, false);
+                        checkDuration();
                         Thread.sleep(duration);
                     }
                 } catch (Exception e) {
