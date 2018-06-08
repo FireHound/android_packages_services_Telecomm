@@ -334,9 +334,9 @@ public class Ringer {
 
         private boolean shouldStop = false;
         private CameraManager cameraManager;
-        private int duration = 500;
         private boolean hasFlash = true;
         private Context context;
+        private int duration;
 
         public TorchToggler(Context ctx) {
             this.context = ctx;
@@ -346,6 +346,9 @@ public class Ringer {
         private void init() {
             cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
             hasFlash = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH);
+
+            duration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.FLASHLIGHT_ON_CALL, 500);
         }
 
         void stop() {
@@ -357,6 +360,7 @@ public class Ringer {
             if (hasFlash) {
                 try {
                     String cameraId = cameraManager.getCameraIdList()[0];
+
                     while (!shouldStop) {
                         cameraManager.setTorchMode(cameraId, true);
                         Thread.sleep(duration);
