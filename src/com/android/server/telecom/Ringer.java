@@ -334,7 +334,7 @@ public class Ringer {
 
         private boolean shouldStop = false;
         private CameraManager cameraManager;
-        private int duration = 500;
+        private int duration;
         private boolean hasFlash = true;
         private Context context;
 
@@ -351,6 +351,9 @@ public class Ringer {
         void stop() {
             shouldStop = true;
         }
+
+        duration = Settings.System.getInt(cr,
+                       Settings.System.FLASHLIGHT_ON_CALL_INTERVAL, 500);
 
         @Override
         protected Object doInBackground(Object[] objects) {
